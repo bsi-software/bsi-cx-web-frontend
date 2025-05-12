@@ -3,7 +3,7 @@
   "version": "25.1.0-snapshot",
   "description": "Standard web frontend library for BSI CX designs",
   "author": "BSI Business Systems Integration AG",
-  "main": "dist/index.js",
+  "main": "dist/bsi-cx-web-frontend-25.1.0.js",
   "scripts": {
     "build": "webpack --config webpack.config.js",
     "start": "webpack serve --config webpack.config.js"

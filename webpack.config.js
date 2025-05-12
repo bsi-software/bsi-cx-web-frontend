@@ -2,7 +2,7 @@ const path = require('path');
 
 module.exports = {
   entry: './src/index.ts',
-  mode: 'development',
+  mode: 'production',
   module: {
     rules: [
       {
@@ -13,11 +13,13 @@ module.exports = {
     ]
   },
   resolve: {
-    extensions: ['.ts']
+    extensions: ['.ts', '.js']
   },
   output: {
     filename: 'bsi-cx-web-frontend-25.1.0.js',
-    path: path.resolve(__dirname, 'dist')
+    path: path.resolve(__dirname, 'dist'),
+    library: 'bsiCxWebFrontend',
+    libraryTarget: 'umd'
   },
   devServer: {
     contentBase: path.join(__dirname, 'dist'),
