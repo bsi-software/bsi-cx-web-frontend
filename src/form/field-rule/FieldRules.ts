@@ -1,20 +1,5 @@
-interface Rule {
-  source: string;
-  targets: string[];
-  expression: string;
-  // If property is not present in the rule it is neither set nor removed on the target element(s) when applying the rule
-  visible?: "visible" | "not-visible"; // Not true or false to allow for a tertiary operator
-  required?: "required" | "not-required";
-  disabled?: "disabled" | "not-disabled";
-  readonly?: "readonly" | "not-readonly";
-  availableValues?: string[]; // For value lists
-  addAttributes?: Record<string, string>;
-  removeAttributes: string[];
-  addClasses: string[];
-  removeClasses: string[];
-}
-
 export class FieldRules {
+
   static FIELD_RULES_ATTRIBUTE_ID = 'data-bsi-formfield-rules';
   static DEBOUNCE_DELAY = 100;
   static OR_OPERATOR = '||';
@@ -33,26 +18,30 @@ export class FieldRules {
   attachedListeners: WeakSet<Element> = new WeakSet();
   debounceTimers: WeakMap<HTMLFormElement, number> = new WeakMap();
 
-  getRulesFromDocument() {
-    const forms = document.querySelectorAll<HTMLFormElement>("form");
+  constructor() {
+  }
 
+  /**
+   * Public function to be called to initialize the field rules framework on all forms in the document.
+   */
+  init() {
+    const forms = document.querySelectorAll<HTMLFormElement>('form');
     forms.forEach((form) => {
       const formId = form.id;
-
       if (!formId) {
-        console.warn("Skipping form without ID:", form);
+        console.warn('Skipping form without ID attribute:', form);
         return;
       }
 
       const rulesAttr = form.getAttribute(FieldRules.FIELD_RULES_ATTRIBUTE_ID);
       if (rulesAttr) {
-        this.setRules(formId, rulesAttr);
+        this.initRules(formId, rulesAttr);
         this.applyRules(form);
       }
     });
   }
 
-  setRules(formId: string, rulesAttr: string) {
+  protected initRules(formId: string, rulesAttr: string) {
     try {
       const rulesJson = JSON.parse(this.unescapeHtmlEntities(rulesAttr));
       if (Array.isArray(rulesJson.rules)) {
@@ -61,7 +50,6 @@ export class FieldRules {
       const form = document.getElementById(formId) as HTMLFormElement;
       for (const rule of rulesJson.rules as Rule[]) {
         const sourceElement = document.getElementById(rule.source) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
-
         if (!sourceElement) {
           console.warn(`Source element "${rule.source}" not found for form "${formId}"`);
           continue;
@@ -71,23 +59,18 @@ export class FieldRules {
           continue;
         }
 
-        const handler = () => {
-          this.debouncedApplyRules(form);
-        };
-
+        const handler = () => this.debouncedApplyRules(form);
         sourceElement.addEventListener('input', handler);
         sourceElement.addEventListener('change', handler);
-
         this.attachedListeners.add(sourceElement);
       }
-
     } catch (error: any) {
-      console.error(`Failed to get rules from JSON: ${error.message}`);
+      console.error('Failed to get rules from JSON', error.message);
     }
   }
 
-  evaluateExpression(sourceValue: string, expression: string): boolean {
-    const isPureNumber = (s: string) => /^-?\d+(\.\d+)?$/.test(s); // TODO avd localized number formats could be a problem?
+  protected evaluateExpression(sourceValue: string, expression: string): boolean {
+    const isPureNumber = (s: string) => /^-?\d+(\.\d+)?$/.test(s); // TODO [awe] 26.1 dynamic forms: localized number formats could be a problem?
     // https://stackoverflow.com/questions/3143070/regex-to-match-an-iso-8601-datetime-string
     const isISODate = (s: string) => /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d{3})?)?)?Z?$/.test(s);
 
@@ -115,7 +98,7 @@ export class FieldRules {
         return cmp(toBoolean(a), toBoolean(b));
       }
 
-      return cmp(a, b); // fallback to string
+      return cmp(a, b); // Fallback to string
     };
 
     if (expression.includes(FieldRules.AND_OPERATOR)) {
@@ -162,11 +145,11 @@ export class FieldRules {
       return sourceValue === comp;
     }
 
-    console.error("Didn't recognize expression: " + expression);
+    console.error('Failed to recognize expression: ' + expression);
     return false;
   }
 
-  applyRules(form: HTMLFormElement) {
+  protected applyRules(form: HTMLFormElement) {
     const formId = form.id;
     if (!formId) return;
 
@@ -183,43 +166,36 @@ export class FieldRules {
       for (const targetId of rule.targets) {
         // Use document.getElement because
         const targetElement = document.getElementById(targetId);
-        if (!targetElement) continue;
-
+        if (!targetElement) {
+          continue;
+        }
         console.debug("Target %o, applies %o, rule %o, targetId %o, value %o", targetElement, applies, rule, targetId, value);
 
         // Apply each rule type if defined
         if (rule.visible) {
           this.ruleDispatcher.visible(targetElement, applies, rule.visible);
         }
-
         if (rule.required) {
           this.ruleDispatcher.required(targetElement, applies, rule.required);
         }
-
         if (rule.disabled) {
           this.ruleDispatcher.disabled(targetElement, applies, rule.disabled);
         }
-
         if (rule.readonly) {
           this.ruleDispatcher.readonly(targetElement, applies, rule.readonly);
         }
-
         if (rule.availableValues) {
           this.ruleDispatcher.availableValues(targetElement, applies, rule.availableValues);
         }
-
         if (rule.addAttributes) {
           this.ruleDispatcher.addAttributes(targetElement, applies, rule.addAttributes);
         }
-
         if (rule.removeAttributes) {
           this.ruleDispatcher.removeAttributes(targetElement, applies, rule.removeAttributes);
         }
-
         if (rule.addClasses) {
           this.ruleDispatcher.addClasses(targetElement, applies, rule.addClasses);
         }
-
         if (rule.removeClasses) {
           this.ruleDispatcher.removeClasses(targetElement, applies, rule.removeClasses);
         }
@@ -227,7 +203,7 @@ export class FieldRules {
     }
   }
 
-  private getSourceValue(sourceInput: HTMLInputElement): string {
+  protected getSourceValue(sourceInput: HTMLInputElement): string {
     if (!sourceInput) return "";
 
     if (sourceInput.type === "checkbox") {
@@ -239,7 +215,13 @@ export class FieldRules {
   ruleDispatcher = {
     visible: (el: HTMLElement, apply: boolean, value: string) => {
       const visible = value === "visible";
-      el.style.display = apply === visible ? "" : "none";
+      const display = (apply === visible) ? "" : "none";
+      el.style.display = display;
+      // Also change the visibility of the associated label
+      const label = document.querySelector(`label[for="${el.id}"]`) as HTMLElement;
+      if (label) {
+        label.style.display = display;
+      }
     },
     required: (el: HTMLElement, apply: boolean, value: string) => {
       console.debug("required: Target %o, applies %o, value %o", el, apply, value);
@@ -266,7 +248,7 @@ export class FieldRules {
           | HTMLTextAreaElement).readOnly = apply && value === "readonly";
       }
     },
-    availableValues: (el: HTMLElement, apply: boolean, value: any[]) => { // TODO avd für Wertelisten anpassen
+    availableValues: (el: HTMLElement, apply: boolean, value: any[]) => { // TODO [awe] 26.1 dynamic forms: für Wertelisten anpassen
       if (!(el instanceof HTMLSelectElement)) return;
 
       if (apply) {
@@ -373,7 +355,7 @@ export class FieldRules {
     }
   };
 
-  debouncedApplyRules(form: HTMLFormElement, delay = FieldRules.DEBOUNCE_DELAY) {
+  protected debouncedApplyRules(form: HTMLFormElement, delay = FieldRules.DEBOUNCE_DELAY) {
     if (this.debounceTimers.has(form)) {
       clearTimeout(this.debounceTimers.get(form));
     }
@@ -386,7 +368,7 @@ export class FieldRules {
     this.debounceTimers.set(form, timer);
   }
 
-  normalizeDateInput(value: string): string {
+  protected normalizeDateInput(value: string): string {
     if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
       // Only a date
       return `${value}T00:00:00.000Z`;
@@ -401,7 +383,7 @@ export class FieldRules {
     return value;
   }
 
-  unescapeHtmlEntities(encoded: string): string {
+  protected unescapeHtmlEntities(encoded: string): string {
     return encoded
       .replace(/&quot;/g, '"')
       .replace(/&#39;/g, "'")
@@ -411,7 +393,22 @@ export class FieldRules {
   }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  const rules = new FieldRules();
-  rules.getRulesFromDocument();
-});
+/**
+ * Definition for 'Rule' object.
+ */
+interface Rule {
+  source: string;
+  targets: string[];
+  expression: string;
+  // If property is not present in the rule it is neither set nor removed on the target element(s) when applying the rule
+  visible?: "visible" | "not-visible"; // Not true or false to allow for a tertiary operator
+  required?: "required" | "not-required";
+  disabled?: "disabled" | "not-disabled";
+  readonly?: "readonly" | "not-readonly";
+  availableValues?: string[]; // For value lists
+  addAttributes?: Record<string, string>;
+  removeAttributes: string[];
+  addClasses: string[];
+  removeClasses: string[];
+}
+
