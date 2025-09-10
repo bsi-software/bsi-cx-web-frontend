@@ -1,15 +1,12 @@
+import {ExprEval} from '../../index';
+
 export class FieldRules {
 
-  static FIELD_RULES_ATTRIBUTE_ID = 'data-bsi-formfield-rules';
+  /**
+   * See Java code: BsiHtmlAttributes#JSON_DOCUMENT.
+   */
+  static JSON_DOCUMENT_ATTRIBUTE = 'data-bsi-json-document';
   static DEBOUNCE_DELAY = 100;
-  static OR_OPERATOR = '||';
-  static AND_OPERATOR = '&&';
-  static EQUALS_OPERATOR = '==';
-  static UNEQUALS_OPERATOR = '!=';
-  static LESS_OPERATOR = '<';
-  static MORE_OPERATOR = '>';
-  static LESS_EQUALS_OPERATOR = '<=';
-  static MORE_EQUALS_OPERATOR = '>=';
 
   cachedRulesJson = new Map<string, any>();
   originalSelectOptions = new WeakMap<HTMLSelectElement, HTMLOptionElement[]>();
@@ -33,17 +30,17 @@ export class FieldRules {
         return;
       }
 
-      const rulesAttr = form.getAttribute(FieldRules.FIELD_RULES_ATTRIBUTE_ID);
-      if (rulesAttr) {
-        this.initRules(formId, rulesAttr);
+      const jsonDocAttr = form.getAttribute(FieldRules.JSON_DOCUMENT_ATTRIBUTE);
+      if (jsonDocAttr) {
+        this.initRules(formId, jsonDocAttr);
         this.applyRules(form);
       }
     });
   }
 
-  protected initRules(formId: string, rulesAttr: string) {
+  protected initRules(formId: string, jsonDocAttr: string) {
     try {
-      const rulesJson = JSON.parse(this.unescapeHtmlEntities(rulesAttr));
+      const rulesJson = JSON.parse(this.unescapeHtmlEntities(jsonDocAttr));
       if (Array.isArray(rulesJson.rules)) {
         this.cachedRulesJson.set(formId, rulesJson);
       }
@@ -69,84 +66,12 @@ export class FieldRules {
     }
   }
 
-  protected evaluateExpression(sourceValue: string, expression: string): boolean {
-    const isPureNumber = (s: string) => /^-?\d+(\.\d+)?$/.test(s); // TODO [awe] 26.1 dynamic forms: localized number formats could be a problem?
-    // https://stackoverflow.com/questions/3143070/regex-to-match-an-iso-8601-datetime-string
-    const isISODate = (s: string) => /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d{3})?)?)?Z?$/.test(s);
+  protected expressionEval(source: HTMLElement, expression: string): any {
+    return new ExprEval(expression).eval(source);
+  }
 
-    const compare = (a: string, b: string, cmp: (x: any, y: any) => boolean): boolean => {
-      const isANum = isPureNumber(a);
-      const isBNum = isPureNumber(b);
-      const isBooleanString = (s: string) => /^(true|false)$/i.test(s);
-      const toBoolean = (s: string) => s.toLowerCase() === "true";
-
-      if (isANum && isBNum) {
-        return cmp(parseFloat(a), parseFloat(b));
-      }
-
-      const isADate = isISODate(a);
-      const isBDate = isISODate(b);
-      if (isADate && isBDate) {
-        const aDate = Date.parse(this.normalizeDateInput(a));
-        const bDate = Date.parse(this.normalizeDateInput(b));
-        return cmp(aDate, bDate);
-      }
-
-      const isABool = isBooleanString(a);
-      const isBBool = isBooleanString(b);
-      if (isABool && isBBool) {
-        return cmp(toBoolean(a), toBoolean(b));
-      }
-
-      return cmp(a, b); // Fallback to string
-    };
-
-    if (expression.includes(FieldRules.AND_OPERATOR)) {
-      const expressions = expression.split(FieldRules.AND_OPERATOR);
-      if (expressions.length > 1) {
-        return expressions.reduce((acc, expr) => acc && this.evaluateExpression(sourceValue, expr), true);
-      }
-    }
-
-    if (expression.includes(FieldRules.OR_OPERATOR)) {
-      const expressions = expression.split(FieldRules.OR_OPERATOR);
-      if (expressions.length > 1) {
-        return expressions.reduce((acc, expr) => acc || this.evaluateExpression(sourceValue, expr), false);
-      }
-    }
-
-    if (expression.startsWith(FieldRules.LESS_EQUALS_OPERATOR)) {
-      const target = expression.slice(FieldRules.LESS_EQUALS_OPERATOR.length);
-      return compare(sourceValue, target, (a, b) => a <= b);
-    }
-
-    if (expression.startsWith(FieldRules.MORE_EQUALS_OPERATOR)) {
-      const target = expression.slice(FieldRules.MORE_EQUALS_OPERATOR.length);
-      return compare(sourceValue, target, (a, b) => a >= b);
-    }
-
-    if (expression.startsWith(FieldRules.LESS_OPERATOR)) {
-      const target = expression.slice(FieldRules.LESS_OPERATOR.length);
-      return compare(sourceValue, target, (a, b) => a < b);
-    }
-
-    if (expression.startsWith(FieldRules.MORE_OPERATOR)) {
-      const target = expression.slice(FieldRules.MORE_OPERATOR.length);
-      return compare(sourceValue, target, (a, b) => a > b);
-    }
-
-    if (expression.startsWith(FieldRules.UNEQUALS_OPERATOR)) {
-      const comp = expression.slice(FieldRules.UNEQUALS_OPERATOR.length);
-      return sourceValue !== comp;
-    }
-
-    if (expression.startsWith(FieldRules.EQUALS_OPERATOR)) {
-      const comp = expression.slice(FieldRules.EQUALS_OPERATOR.length);
-      return sourceValue === comp;
-    }
-
-    console.error('Failed to recognize expression: ' + expression);
-    return false;
+  protected expressionMatches(source: HTMLElement, expression: string): boolean {
+    return new ExprEval(expression).matches(source);
   }
 
   protected applyRules(form: HTMLFormElement) {
@@ -157,117 +82,96 @@ export class FieldRules {
     if (!rulesObj || !Array.isArray(rulesObj.rules)) return;
 
     for (const rule of rulesObj.rules) {
-      const sourceInput = form.querySelector<HTMLInputElement>(`#${rule.source}`);
-      if (!sourceInput) continue;
+      const sourceEl = form.querySelector<HTMLInputElement>(`#${rule.source}`);
+      if (!sourceEl) continue;
 
-      const value = this.getSourceValue(sourceInput);
-      const applies = this.evaluateExpression(value, rule.expression);
+      // If no 'expression' is set, the rule is always applied - this makes sense if the rule works with dynamic values.
+      let applies = !!rule.expression ? this.expressionMatches(sourceEl, rule.expression) : true;
 
       for (const targetId of rule.targets) {
-        // Use document.getElement because
-        const targetElement = document.getElementById(targetId);
-        if (!targetElement) {
+        const targetEl = document.getElementById(targetId);
+        if (!targetEl) {
           continue;
         }
-        console.debug("Target %o, applies %o, rule %o, targetId %o, value %o", targetElement, applies, rule, targetId, value);
+        console.debug('Target %o, applies %o, rule %o, targetId %o, value %o', targetEl, applies, rule, targetId);
 
         // Apply each rule type if defined
         if (rule.visible) {
-          this.ruleDispatcher.visible(targetElement, applies, rule.visible);
+          this.ruleDispatcher.visible(sourceEl, targetEl, applies, rule.visible);
         }
         if (rule.required) {
-          this.ruleDispatcher.required(targetElement, applies, rule.required);
+          this.ruleDispatcher.required(sourceEl, targetEl, applies, rule.required);
         }
         if (rule.disabled) {
-          this.ruleDispatcher.disabled(targetElement, applies, rule.disabled);
+          this.ruleDispatcher.disabled(sourceEl, targetEl, applies, rule.disabled);
         }
         if (rule.readonly) {
-          this.ruleDispatcher.readonly(targetElement, applies, rule.readonly);
+          this.ruleDispatcher.readonly(sourceEl, targetEl, applies, rule.readonly);
         }
         if (rule.availableValues) {
-          this.ruleDispatcher.availableValues(targetElement, applies, rule.availableValues);
+          this.ruleDispatcher.availableValues(targetEl, applies, rule.availableValues);
         }
         if (rule.addAttributes) {
-          this.ruleDispatcher.addAttributes(targetElement, applies, rule.addAttributes);
+          this.ruleDispatcher.addAttributes(targetEl, applies, rule.addAttributes);
         }
         if (rule.removeAttributes) {
-          this.ruleDispatcher.removeAttributes(targetElement, applies, rule.removeAttributes);
+          this.ruleDispatcher.removeAttributes(targetEl, applies, rule.removeAttributes);
         }
         if (rule.addClasses) {
-          this.ruleDispatcher.addClasses(targetElement, applies, rule.addClasses);
+          this.ruleDispatcher.addClasses(targetEl, applies, rule.addClasses);
         }
         if (rule.removeClasses) {
-          this.ruleDispatcher.removeClasses(targetElement, applies, rule.removeClasses);
+          this.ruleDispatcher.removeClasses(targetEl, applies, rule.removeClasses);
         }
       }
     }
   }
 
-  protected getSourceValue(sourceInput: HTMLInputElement): string {
-    if (!sourceInput) return "";
-
-    if (sourceInput.type === "checkbox") {
-      return sourceInput.checked ? "true" : "false";
-    }
-    return sourceInput.value;
-  }
-
   ruleDispatcher = {
-    visible: (el: HTMLElement, apply: boolean, value: string) => {
-      const visible = value === "visible";
-      const display = (apply === visible) ? "" : "none";
-      el.style.display = display;
+    visible: (source: HTMLElement, target: HTMLElement, apply: boolean, value: string) => {
+      let display = this.booleanToVisible(this.expressionEval(source, value));
+      target.style.display = display;
       // Also change the visibility of the associated label
-      const label = document.querySelector(`label[for="${el.id}"]`) as HTMLElement;
+      const label = document.querySelector(`label[for="${target.id}"]`) as HTMLElement;
       if (label) {
         label.style.display = display;
       }
     },
-    required: (el: HTMLElement, apply: boolean, value: string) => {
-      console.debug("required: Target %o, applies %o, value %o", el, apply, value);
-      if ('required' in el) {
-        (el as HTMLInputElement
-          | HTMLSelectElement
-          | HTMLTextAreaElement).required = apply && value === "required";
+    required: (source: HTMLElement, target: HTMLElement, apply: boolean, value: string) => {
+      if ('required' in target) {
+        (target as any).required = this.expressionMatches(source, value);
       }
     },
-    disabled: (el: HTMLElement, apply: boolean, value: string) => {
-      if ("disabled" in el) {
-        (el as HTMLInputElement
-          | HTMLTextAreaElement
-          | HTMLButtonElement
-          | HTMLFieldSetElement
-          | HTMLOptGroupElement
-          | HTMLOptionElement
-          | HTMLSelectElement).disabled = apply && value === "disabled";
+    disabled: (source: HTMLElement, target: HTMLElement, apply: boolean, value: string) => {
+      if ('disabled' in target) {
+        (target as any).disabled = this.expressionMatches(source, value);
       }
     },
-    readonly: (el: HTMLElement, apply: boolean, value: string) => {
-      if ("readOnly" in el) {
-        (el as HTMLInputElement
-          | HTMLTextAreaElement).readOnly = apply && value === "readonly";
+    readonly: (source: HTMLElement, target: HTMLElement, apply: boolean, value: string) => {
+      if ('readOnly' in target) {
+        (target as any).readOnly = this.expressionMatches(source, value);
       }
     },
-    availableValues: (el: HTMLElement, apply: boolean, value: any[]) => { // TODO [awe] 26.1 dynamic forms: für Wertelisten anpassen
-      if (!(el instanceof HTMLSelectElement)) return;
+    availableValues: (target: HTMLElement, apply: boolean, value: any[]) => { // TODO [awe] 26.1 dynamic forms: für Wertelisten anpassen
+      if (!(target instanceof HTMLSelectElement)) return;
 
       if (apply) {
-        if (!this.originalSelectOptions.has(el)) {
-          this.originalSelectOptions.set(el, Array.from(el.options).map(opt => opt.cloneNode(true) as HTMLOptionElement));
+        if (!this.originalSelectOptions.has(target)) {
+          this.originalSelectOptions.set(target, Array.from(target.options).map(opt => opt.cloneNode(true) as HTMLOptionElement));
         }
 
-        el.innerHTML = "";
+        target.innerHTML = '';
         value.forEach(v => {
-          const option = document.createElement("option");
+          const option = document.createElement('option');
           option.value = v;
           option.textContent = v;
-          el.appendChild(option);
+          target.appendChild(option);
         });
 
-      } else if (this.originalSelectOptions.has(el)) {
-        el.innerHTML = ""; // clear current options
-        this.originalSelectOptions.get(el)?.forEach(opt => el.appendChild(opt.cloneNode(true)));
-        this.originalSelectOptions.delete(el);
+      } else if (this.originalSelectOptions.has(target)) {
+        target.innerHTML = ''; // clear current options
+        this.originalSelectOptions.get(target)?.forEach(opt => target.appendChild(opt.cloneNode(true)));
+        this.originalSelectOptions.delete(target);
       }
     },
     addAttributes: (el: HTMLElement, apply: boolean, attrs: Record<string, string>) => {
@@ -275,7 +179,7 @@ export class FieldRules {
         this.originalAttributes.set(el, new Map());
       }
       const original = this.originalAttributes.get(el)!;
-      for (const [key, value] of Object.entries(attrs)) {
+      for (const [key] of Object.entries(attrs)) {
         if (!original.has(key)) {
           original.set(key, el.getAttribute(key));
         }
@@ -368,28 +272,19 @@ export class FieldRules {
     this.debounceTimers.set(form, timer);
   }
 
-  protected normalizeDateInput(value: string): string {
-    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-      // Only a date
-      return `${value}T00:00:00.000Z`;
-    }
-    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) {
-      // Local datetime without seconds
-      return `${value}:00.000Z`;
-    }
-    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(value)) {
-      return `${value}.000Z`;
-    }
-    return value;
-  }
-
   protected unescapeHtmlEntities(encoded: string): string {
     return encoded
       .replace(/&quot;/g, '"')
       .replace(/&#39;/g, "'")
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
-      .replace(/&amp;/g, '&');
+      .replace(/&amp;/g, '&')
+      .replace(/&lbrace/g, '{')
+      .replace(/&rbrace;/g, '}');
+  }
+
+  protected booleanToVisible(value: any): '' | 'none' {
+    return !!value ? '' : 'none';
   }
 }
 
@@ -401,10 +296,10 @@ interface Rule {
   targets: string[];
   expression: string;
   // If property is not present in the rule it is neither set nor removed on the target element(s) when applying the rule
-  visible?: "visible" | "not-visible"; // Not true or false to allow for a tertiary operator
-  required?: "required" | "not-required";
-  disabled?: "disabled" | "not-disabled";
-  readonly?: "readonly" | "not-readonly";
+  visible?: 'visible' | 'not-visible'; // Not true or false to allow for a tertiary operator
+  required?: 'required' | 'not-required';
+  disabled?: 'disabled' | 'not-disabled';
+  readonly?: 'readonly' | 'not-readonly';
   availableValues?: string[]; // For value lists
   addAttributes?: Record<string, string>;
   removeAttributes: string[];
