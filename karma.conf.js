@@ -1,30 +1,15 @@
+// TODO [awe] 26.1 dynamic forms: allow to write tests with TypeScript. Currently the test requires the Webpack build
+//  to be executed first --> it creates the bundled .js in the /dist folder.
 module.exports = function(config) {
   config.set({
     // logLevel: config.LOG_DEBUG,
     basePath: '',
-    frameworks: ['jasmine', 'karma-typescript'],
+    frameworks: ['jasmine'],
     files: [
-      { pattern: 'test-main.ts' },
-      { pattern: 'tests/**/*.spec.ts', included: false },
-      { pattern: 'src/**/*.ts', included: false }
+      { pattern: 'dist/bsi-cx-web-frontend.js' },
+      { pattern: 'tests/**/*.spec.js' }
     ],
-    preprocessors: {
-      'test-main.ts': ['karma-typescript'],
-      'tests/**/*.spec.ts': ['karma-typescript'],
-      'src/**/*.ts': ['karma-typescript']
-    },
-    reporters: ['progress', 'karma-typescript'],
-    browsers: ['Chrome'], // ['ChromeHeadless'],
-    singleRun: true,
-    karmaTypescriptConfig: {
-      tsconfig: './tsconfig.test.json',
-      bundlerOptions: {
-        sourceMap: true,
-        transforms: [
-          require("karma-typescript-es6-transform")()
-        ],
-        entrypoints: /test-main\.ts$/
-      },
-    }
+    reporters: ['progress'],
+    browsers: ['Chrome'] // ['ChromeHeadless'],
   });
 };

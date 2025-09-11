@@ -33,8 +33,22 @@ export class ExprEval {
    * Evaluates the expression. The result may be of any type.
    */
   eval(source: any): any {
-    return Parser.evaluate(this.expression, {
+    let parser = new Parser();
+    this.registerCustomFunctions(parser);
+    return parser.evaluate(this.expression, {
       source: source
     });
+  }
+
+  protected registerCustomFunctions(parser: Parser) {
+    /**
+     * Used to convert ISO date and date/time strings into a numeric value that can be compared in an expression.
+     * <br>
+     * Example for an ISO date: 2025-07-05<br>
+     * Example for an ISO date/time: 2025-07-04T12:00
+     */
+    parser.functions.toDate = (isoDate: string)=> {
+      return new Date(isoDate).getTime();
+    };
   }
 }

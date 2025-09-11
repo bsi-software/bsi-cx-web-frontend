@@ -86,7 +86,7 @@ export class FieldRules {
       if (!sourceEl) continue;
 
       // If no 'expression' is set, the rule is always applied - this makes sense if the rule works with dynamic values.
-      let applies = !!rule.expression ? this.expressionMatches(sourceEl, rule.expression) : true;
+      let applies = rule.expression ? this.expressionMatches(sourceEl, rule.expression) : true;
 
       for (const targetId of rule.targets) {
         const targetEl = document.getElementById(targetId);
@@ -169,7 +169,7 @@ export class FieldRules {
         });
 
       } else if (this.originalSelectOptions.has(target)) {
-        target.innerHTML = ''; // clear current options
+        target.innerHTML = ''; // Clear current options
         this.originalSelectOptions.get(target)?.forEach(opt => target.appendChild(opt.cloneNode(true)));
         this.originalSelectOptions.delete(target);
       }
