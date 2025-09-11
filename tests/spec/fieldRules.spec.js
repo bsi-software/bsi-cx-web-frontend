@@ -46,11 +46,9 @@ describe('FieldRules.ts', () => {
       expect(cached.rules.length).toBe(1);
     });
 
-    it('logs an error for invalid JSON rules', () => {
-      spyOn(console, 'error');
+    it('throws an error for invalid JSON rules', () => {
       document.body.innerHTML = '<form id="broken-form" data-bsi-json-document="not-a-json-string"></form>';
-      fieldRules.init();
-      expect(console.error).toHaveBeenCalledWith(jasmine.stringMatching('Failed to get rules from JSON:'));
+      expect(() => fieldRules.init()).toThrowError();
     });
   });
 
@@ -90,14 +88,14 @@ describe('FieldRules.ts', () => {
       expect(getComputedStyle(field2).display).toBe('none');
       expect(field2.required).toBeFalse();
 
-      // Second run: expression does apply
+      // Second run: expression -does- apply
       field1.value = 'yes';
       fieldRules.applyRules(form);
       expect(getComputedStyle(field2).display).toBe('none');
       expect(field2.required).toBeTrue();
     });
 
-    it('should toggle visibility based on checkbox state', () => {
+    it('should toggle visibility based on checkbox state (no expression required)', () => {
       const form = setupForm(`
           <input type="checkbox" id="checkbox" />
           <div id="target" style="display: none;"></div>
@@ -124,11 +122,11 @@ describe('FieldRules.ts', () => {
       expect(form.querySelector("#target").style.display).toBe("none");
     });
 
-    it('should set required attribute based on select value', () => {
+    it('should set required attribute based on selected value (no expression required)', () => {
       const form = setupForm(`
-    <select id="select"><option value="a">a</option><option value="b">b</option></select>
-    <input id="target" />
-  `);
+        <select id="select"><option value="a">a</option><option value="b">b</option></select>
+        <input id="target" />
+      `);
 
       const rules = {
         rules: [
@@ -244,24 +242,25 @@ describe('FieldRules.ts', () => {
 
     });
 
-    it('should revert classes and attributes when rule no longer applies', () => {
-      sourceField.value = 'apply';
-      fieldRules.applyRules(form);
-
-      sourceField.value = 'ignore';
-      fieldRules.applyRules(form);
-
-      // Class
-      expect(targetField.classList.contains('highlight')).toBeFalse();
-      expect(targetField.classList.contains('important')).toBeFalse();
-      expect(targetField.classList.contains('dimmed')).toBeTrue();
-
-      // Attribute
-      expect(targetField.hasAttribute('data-status')).toBeFalse();
-      expect(targetField.hasAttribute('title')).toBeFalse();
-      expect(targetField.hasAttribute('aria-disabled')).toBeTrue();
-      expect(targetField.hasAttribute('data-bsi-remove')).toBeTrue();
-    });
+    // TODO [awe] 26.1 dynamic forms: re-enable and re-write this test case when the toggle feature is available
+    // it('should revert classes and attributes when rule no longer applies', () => {
+    //   sourceField.value = 'apply';
+    //   fieldRules.applyRules(form);
+    //
+    //   sourceField.value = 'ignore';
+    //   fieldRules.applyRules(form);
+    //
+    //   // Class
+    //   expect(targetField.classList.contains('highlight')).toBeFalse();
+    //   expect(targetField.classList.contains('important')).toBeFalse();
+    //   expect(targetField.classList.contains('dimmed')).toBeTrue();
+    //
+    //   // Attribute
+    //   expect(targetField.hasAttribute('data-status')).toBeFalse();
+    //   expect(targetField.hasAttribute('title')).toBeFalse();
+    //   expect(targetField.hasAttribute('aria-disabled')).toBeTrue();
+    //   expect(targetField.hasAttribute('data-bsi-remove')).toBeTrue();
+    // });
   });
 
 });

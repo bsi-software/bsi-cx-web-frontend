@@ -9,9 +9,6 @@ export class FieldRules {
   static DEBOUNCE_DELAY = 100;
 
   cachedRulesJson = new Map<string, any>();
-  originalSelectOptions = new WeakMap<HTMLSelectElement, HTMLOptionElement[]>();
-  originalClassLists = new WeakMap<HTMLElement, Set<string>>();
-  originalAttributes = new WeakMap<HTMLElement, Map<string, string | null>>();
   attachedListeners: WeakSet<Element> = new WeakSet();
   debounceTimers: WeakMap<HTMLFormElement, number> = new WeakMap();
 
@@ -20,6 +17,8 @@ export class FieldRules {
 
   /**
    * Public function to be called to initialize the field rules framework on all forms in the document.
+   *
+   * @throws Error if content of attribute <code>data-bsi-json-document</code> is not a valid JSON document.
    */
   init() {
     const forms = document.querySelectorAll<HTMLFormElement>('form');
@@ -38,31 +37,29 @@ export class FieldRules {
     });
   }
 
+  /**
+   * @throws Error if content of attribute <code>data-bsi-json-document</code> is not a valid JSON document.
+   */
   protected initRules(formId: string, jsonDocAttr: string) {
-    try {
-      const rulesJson = JSON.parse(this.unescapeHtmlEntities(jsonDocAttr));
-      if (Array.isArray(rulesJson.rules)) {
-        this.cachedRulesJson.set(formId, rulesJson);
+    const rulesJson = JSON.parse(this.unescapeHtmlEntities(jsonDocAttr));
+    if (Array.isArray(rulesJson.rules)) {
+      this.cachedRulesJson.set(formId, rulesJson);
+    }
+    const form = document.getElementById(formId) as HTMLFormElement;
+    for (const rule of rulesJson.rules as Rule[]) {
+      const sourceEl = document.getElementById(rule.source) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+      if (!sourceEl) {
+        console.warn(`Source element "${rule.source}" not found for form "${formId}"`);
+        continue;
       }
-      const form = document.getElementById(formId) as HTMLFormElement;
-      for (const rule of rulesJson.rules as Rule[]) {
-        const sourceElement = document.getElementById(rule.source) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
-        if (!sourceElement) {
-          console.warn(`Source element "${rule.source}" not found for form "${formId}"`);
-          continue;
-        }
-
-        if (this.attachedListeners.has(sourceElement)) {
-          continue;
-        }
-
-        const handler = () => this.debouncedApplyRules(form);
-        sourceElement.addEventListener('input', handler);
-        sourceElement.addEventListener('change', handler);
-        this.attachedListeners.add(sourceElement);
+      if (this.attachedListeners.has(sourceEl)) {
+        continue;
       }
-    } catch (error: any) {
-      console.error('Failed to get rules from JSON', error.message);
+
+      const eventHandler = () => this.debouncedApplyRules(form);
+      sourceEl.addEventListener('input', eventHandler);
+      sourceEl.addEventListener('change', eventHandler);
+      this.attachedListeners.add(sourceEl);
     }
   }
 
@@ -83,52 +80,56 @@ export class FieldRules {
 
     for (const rule of rulesObj.rules) {
       const sourceEl = form.querySelector<HTMLInputElement>(`#${rule.source}`);
-      if (!sourceEl) continue;
+      if (!sourceEl) {
+        continue;
+      }
 
       // If no 'expression' is set, the rule is always applied - this makes sense if the rule works with dynamic values.
-      let applies = rule.expression ? this.expressionMatches(sourceEl, rule.expression) : true;
+      let apply = rule.expression ? this.expressionMatches(sourceEl, rule.expression) : true;
+      if (!apply) {
+        console.debug('Skipping rule (1) for source element (2) because expression (3) does not apply.',
+          rule, sourceEl, rule.expression);
+        continue;
+      }
 
       for (const targetId of rule.targets) {
         const targetEl = document.getElementById(targetId);
         if (!targetEl) {
           continue;
         }
-        console.debug('Target %o, applies %o, rule %o, targetId %o, value %o', targetEl, applies, rule, targetId);
+        console.debug('Applying rule (1) for source element (2) for target (3)', rule, sourceEl, targetEl);
 
         // Apply each rule type if defined
         if (rule.visible) {
-          this.ruleDispatcher.visible(sourceEl, targetEl, applies, rule.visible);
+          this.ruleDispatcher.visible(sourceEl, targetEl, rule.visible);
         }
         if (rule.required) {
-          this.ruleDispatcher.required(sourceEl, targetEl, applies, rule.required);
+          this.ruleDispatcher.required(sourceEl, targetEl, rule.required);
         }
         if (rule.disabled) {
-          this.ruleDispatcher.disabled(sourceEl, targetEl, applies, rule.disabled);
+          this.ruleDispatcher.disabled(sourceEl, targetEl, rule.disabled);
         }
         if (rule.readonly) {
-          this.ruleDispatcher.readonly(sourceEl, targetEl, applies, rule.readonly);
-        }
-        if (rule.availableValues) {
-          this.ruleDispatcher.availableValues(targetEl, applies, rule.availableValues);
+          this.ruleDispatcher.readonly(sourceEl, targetEl, rule.readonly);
         }
         if (rule.addAttributes) {
-          this.ruleDispatcher.addAttributes(targetEl, applies, rule.addAttributes);
+          this.ruleDispatcher.addAttributes(targetEl, rule.addAttributes);
         }
         if (rule.removeAttributes) {
-          this.ruleDispatcher.removeAttributes(targetEl, applies, rule.removeAttributes);
+          this.ruleDispatcher.removeAttributes(targetEl, rule.removeAttributes);
         }
         if (rule.addClasses) {
-          this.ruleDispatcher.addClasses(targetEl, applies, rule.addClasses);
+          this.ruleDispatcher.addClasses(targetEl, rule.addClasses);
         }
         if (rule.removeClasses) {
-          this.ruleDispatcher.removeClasses(targetEl, applies, rule.removeClasses);
+          this.ruleDispatcher.removeClasses(targetEl, rule.removeClasses);
         }
       }
     }
   }
 
   ruleDispatcher = {
-    visible: (source: HTMLElement, target: HTMLElement, apply: boolean, value: string) => {
+    visible: (source: HTMLElement, target: HTMLElement, value: string) => {
       let display = this.booleanToVisible(this.expressionEval(source, value));
       target.style.display = display;
       // Also change the visibility of the associated label
@@ -137,125 +138,36 @@ export class FieldRules {
         label.style.display = display;
       }
     },
-    required: (source: HTMLElement, target: HTMLElement, apply: boolean, value: string) => {
+    required: (source: HTMLElement, target: HTMLElement, value: string) => {
       if ('required' in target) {
         (target as any).required = this.expressionMatches(source, value);
       }
     },
-    disabled: (source: HTMLElement, target: HTMLElement, apply: boolean, value: string) => {
+    disabled: (source: HTMLElement, target: HTMLElement, value: string) => {
       if ('disabled' in target) {
         (target as any).disabled = this.expressionMatches(source, value);
       }
     },
-    readonly: (source: HTMLElement, target: HTMLElement, apply: boolean, value: string) => {
+    readonly: (source: HTMLElement, target: HTMLElement, value: string) => {
       if ('readOnly' in target) {
         (target as any).readOnly = this.expressionMatches(source, value);
       }
     },
-    availableValues: (target: HTMLElement, apply: boolean, value: any[]) => { // TODO [awe] 26.1 dynamic forms: für Wertelisten anpassen
-      if (!(target instanceof HTMLSelectElement)) return;
-
-      if (apply) {
-        if (!this.originalSelectOptions.has(target)) {
-          this.originalSelectOptions.set(target, Array.from(target.options).map(opt => opt.cloneNode(true) as HTMLOptionElement));
-        }
-
-        target.innerHTML = '';
-        value.forEach(v => {
-          const option = document.createElement('option');
-          option.value = v;
-          option.textContent = v;
-          target.appendChild(option);
-        });
-
-      } else if (this.originalSelectOptions.has(target)) {
-        target.innerHTML = ''; // Clear current options
-        this.originalSelectOptions.get(target)?.forEach(opt => target.appendChild(opt.cloneNode(true)));
-        this.originalSelectOptions.delete(target);
+    addAttributes: (el: HTMLElement, attrs: Record<string, string>) => {
+      for (const [key, value] of Object.entries(attrs)) {
+        el.setAttribute(key, value);
       }
     },
-    addAttributes: (el: HTMLElement, apply: boolean, attrs: Record<string, string>) => {
-      if (!this.originalAttributes.has(el)) {
-        this.originalAttributes.set(el, new Map());
-      }
-      const original = this.originalAttributes.get(el)!;
-      for (const [key] of Object.entries(attrs)) {
-        if (!original.has(key)) {
-          original.set(key, el.getAttribute(key));
-        }
-      }
-
-      if (apply) {
-        for (const [key, value] of Object.entries(attrs)) {
-          el.setAttribute(key, value);
-        }
-      } else {
-        const original = this.originalAttributes.get(el)!;
-        for (const key of Object.keys(attrs)) {
-          const originalValue = original.get(key);
-          if (originalValue == null) {// == instead of === to catch unknown
-            el.removeAttribute(key);
-          } else {
-            el.setAttribute(key, originalValue);
-          }
-        }
-      }
-    },
-
-    removeAttributes: (el: HTMLElement, apply: boolean, attrs: string[]) => {
-      if (!this.originalAttributes.has(el)) {
-        this.originalAttributes.set(el, new Map());
-      }
-      const original = this.originalAttributes.get(el)!;
+    removeAttributes: (el: HTMLElement, attrs: string[]) => {
       for (const key of attrs) {
-        if (!original.has(key)) {
-          original.set(key, el.getAttribute(key));
-        }
-      }
-
-      if (apply) {
-        for (const key of attrs) {
-          el.removeAttribute(key);
-        }
-      } else {
-        const original = this.originalAttributes.get(el)!;
-        for (const key of attrs) {
-          const originalValue = original.get(key);
-          if (originalValue == null) { // == instead of === to catch unknown
-            el.removeAttribute(key);
-          } else {
-            el.setAttribute(key, originalValue);
-          }
-        }
+        el.removeAttribute(key);
       }
     },
-
-    addClasses: (el: HTMLElement, apply: boolean, classes: string[]) => {
-      if (!this.originalClassLists.has(el)) {
-        this.originalClassLists.set(el, new Set(Array.from(el.classList)));
-      }
-
-      if (apply) {
-        classes.forEach(cls => el.classList.add(cls));
-      } else {
-        const original = this.originalClassLists.get(el)!;
-        el.className = '';
-        original.forEach(cls => el.classList.add(cls));
-      }
+    addClasses: (el: HTMLElement, classes: string[]) => {
+      classes.forEach(cls => el.classList.add(cls));
     },
-
-    removeClasses: (el: HTMLElement, apply: boolean, classes: string[]) => {
-      if (!this.originalClassLists.has(el)) {
-        this.originalClassLists.set(el, new Set(Array.from(el.classList)));
-      }
-
-      if (apply) {
-        classes.forEach(cls => el.classList.remove(cls));
-      } else {
-        const original = this.originalClassLists.get(el)!;
-        el.className = '';
-        original.forEach(cls => el.classList.add(cls));
-      }
+    removeClasses: (el: HTMLElement, classes: string[]) => {
+      classes.forEach(cls => el.classList.remove(cls));
     }
   };
 
@@ -294,16 +206,57 @@ export class FieldRules {
 interface Rule {
   source: string;
   targets: string[];
-  expression: string;
-  // If property is not present in the rule it is neither set nor removed on the target element(s) when applying the rule
-  visible?: 'visible' | 'not-visible'; // Not true or false to allow for a tertiary operator
-  required?: 'required' | 'not-required';
-  disabled?: 'disabled' | 'not-disabled';
-  readonly?: 'readonly' | 'not-readonly';
-  availableValues?: string[]; // For value lists
+  /**
+   * This optional property defines an expression which must evaluate to a boolean.
+   * If the expression is <code>true</code>, the rule is applied. Otherwise, the rule is ignored.
+   * If no expression is defined, the rule is always applied. In that case you should use a dynamic
+   * value for the properties or functions to be set or executed on the targets.
+   * <br>
+   * For instance, you can define a rule for a checkbox without an expression. And set the visible state
+   * of the target like this:
+   * <pre>
+   * visible: 'source.checked'
+   * </pre>
+   */
+  expression?: string;
+  /**
+   * Optional property to control the <em>visibility</em> of the target elements (DOM property 'display').
+   * If the property is a string, an expression that evaluates to a boolean is expected.
+   * It is also possible to set a fixed boolean value.
+   */
+  visible?: string | boolean;
+  /**
+   * Optional property to control the <em>required</em> state of the target elements.
+   * If the property is a string, an expression that evaluates to a boolean is expected.
+   * It is also possible to set a fixed boolean value.
+   */
+  required?: string | boolean;
+  /**
+   * Optional property to control the <em>disabled</em> state of the target elements.
+   * If the property is a string, an expression that evaluates to a boolean is expected.
+   * It is also possible to set a fixed boolean value.
+   */
+  disabled?: string | boolean;
+  /**
+   * Optional property to control the <em>readonly</em> state of the target elements.
+   * If the property is a string, an expression that evaluates to a boolean is expected.
+   * It is also possible to set a fixed boolean value.
+   */
+  readonly?: string | boolean;
   addAttributes?: Record<string, string>;
   removeAttributes: string[];
   addClasses: string[];
   removeClasses: string[];
+  // TODO [awe] 26.1 dynamic forms: add toggle operations for classes and attributes. Example:
+  // toggleClasses: {
+  //   expression: 'source.checked', # when true --> add, remove otherwise
+  //   classes: ['highlight', 'foo']
+  // },
+  // toggleAttributes: {
+  //   expression: 'source.checked', # when true --> add, remove otherwise
+  //   attributes: {
+  //     'data-bsi-remove': 'true'
+  //   }
+  // }
 }
 
