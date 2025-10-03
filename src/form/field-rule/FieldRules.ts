@@ -8,7 +8,7 @@ export class FieldRules {
   static JSON_DOCUMENT_ATTRIBUTE = 'data-bsi-json-document';
   static DEBOUNCE_DELAY = 100;
 
-  cachedRulesJson = new Map<string, any>();
+  cachedRulesJson = new Map<string, Rules>();
   attachedListeners: WeakSet<Element> = new WeakSet();
   debounceTimers: WeakMap<HTMLFormElement, number> = new WeakMap();
 
@@ -85,10 +85,10 @@ export class FieldRules {
       }
 
       // If no 'expression' is set, the rule is always applied - this makes sense if the rule works with dynamic values.
-      let apply = rule.expression ? this.expressionMatches(sourceEl, rule.expression) : true;
+      let apply = rule.condition ? this.expressionMatches(sourceEl, rule.condition) : true;
       if (!apply) {
         console.debug('Skipping rule (1) for source element (2) because expression (3) does not apply.',
-          rule, sourceEl, rule.expression);
+          rule, sourceEl, rule.condition);
         continue;
       }
 
@@ -200,6 +200,10 @@ export class FieldRules {
   }
 }
 
+interface Rules {
+  rules: Rule[];
+}
+
 /**
  * Definition for 'Rule' object.
  */
@@ -208,8 +212,8 @@ interface Rule {
   targets: string[];
   /**
    * This optional property defines an expression which must evaluate to a boolean.
-   * If the expression is <code>true</code>, the rule is applied. Otherwise, the rule is ignored.
-   * If no expression is defined, the rule is always applied. In that case you should use a dynamic
+   * If the condition is <code>true</code>, the rule is applied. Otherwise, the rule is ignored.
+   * If no condition is defined, the rule is always applied. In that case you should use a dynamic
    * value for the properties or functions to be set or executed on the targets.
    * <br>
    * For instance, you can define a rule for a checkbox without an expression. And set the visible state
@@ -218,45 +222,30 @@ interface Rule {
    * visible: 'source.checked'
    * </pre>
    */
-  expression?: string;
+  condition?: string;
   /**
    * Optional property to control the <em>visibility</em> of the target elements (DOM property 'display').
-   * If the property is a string, an expression that evaluates to a boolean is expected.
-   * It is also possible to set a fixed boolean value.
+   * If set, the string contains an expression which is evaluated to a boolean.
    */
-  visible?: string | boolean;
+  visible?: string;
   /**
    * Optional property to control the <em>required</em> state of the target elements.
-   * If the property is a string, an expression that evaluates to a boolean is expected.
-   * It is also possible to set a fixed boolean value.
+   * If set, the string contains an expression which is evaluated to a boolean.
    */
-  required?: string | boolean;
+  required?: string;
   /**
    * Optional property to control the <em>disabled</em> state of the target elements.
-   * If the property is a string, an expression that evaluates to a boolean is expected.
-   * It is also possible to set a fixed boolean value.
+   * If set, the string contains an expression which is evaluated to a boolean.
    */
-  disabled?: string | boolean;
+  disabled?: string;
   /**
    * Optional property to control the <em>readonly</em> state of the target elements.
-   * If the property is a string, an expression that evaluates to a boolean is expected.
-   * It is also possible to set a fixed boolean value.
+   * If set, the string contains an expression which is evaluated to a boolean.
    */
-  readonly?: string | boolean;
+  readonly?: string;
   addAttributes?: Record<string, string>;
   removeAttributes: string[];
   addClasses: string[];
   removeClasses: string[];
-  // TODO [awe] 26.1 dynamic forms: add toggle operations for classes and attributes. Example:
-  // toggleClasses: {
-  //   expression: 'source.checked', # when true --> add, remove otherwise
-  //   classes: ['highlight', 'foo']
-  // },
-  // toggleAttributes: {
-  //   expression: 'source.checked', # when true --> add, remove otherwise
-  //   attributes: {
-  //     'data-bsi-remove': 'true'
-  //   }
-  // }
 }
 
