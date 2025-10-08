@@ -138,5 +138,16 @@ describe('ExprEval.ts', () => {
     it('normalizes and compares datetime-local values correctly', () => {
       expect(runEval('toDate(source.value) < toDate("2025-07-04T12:00")', {value: '2025-07-04T10:00'})).toBe(true);
     });
+
+    it ('handles empty and non-empty strings correctly', () => {
+      // With static strings
+      expect(runEval('length("foo") > 0', {value: '-ignore-'})).toBe(true);
+      expect(runEval('length("foo") == 3', {value: '-ignore-'})).toBe(true);
+      expect(runEval('length("") == 0', {value: '-ignore-'})).toBe(true);
+      // With variable strings
+      expect(runEval('length(source.value) > 0', {value: 'foo'})).toBe(true);
+      expect(runEval('length(source.value) == 3', {value: 'foo'})).toBe(true);
+      expect(runEval('length(source.value) == 0', {value: ''})).toBe(true);
+    });
   });
 });
