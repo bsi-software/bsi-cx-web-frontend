@@ -24,7 +24,7 @@ describe('FieldRules.ts', () => {
               'field2',
               'field3'
             ],
-            expression: 'source.value < 10',
+            condition: 'source.value < 10',
             visibility: 'true',
             mandatory: 'true'
           }
@@ -71,9 +71,9 @@ describe('FieldRules.ts', () => {
         rules: [
           {
             source: 'field1',
-            expression: 'source.value == "yes"',
+            condition: 'source.value == "yes"',
             targets: ['field2'],
-            required: 'true', // TODO [awe] 26.1 dynamic forms: hier wollen wir true ohne quotes schreiben können. ExprEval bypassen
+            required: 'true',
             visible: 'false'
           }
         ]
@@ -82,20 +82,20 @@ describe('FieldRules.ts', () => {
       const field1 = document.getElementById('field1');
       const field2 = document.getElementById('field2');
 
-      // First run: expression does not apply
+      // First run: condition does not apply
       field1.value = 'no';
       fieldRules.applyRules(form);
       expect(getComputedStyle(field2).display).toBe('none');
       expect(field2.required).toBeFalse();
 
-      // Second run: expression -does- apply
+      // Second run: condition -does- apply
       field1.value = 'yes';
       fieldRules.applyRules(form);
       expect(getComputedStyle(field2).display).toBe('none');
       expect(field2.required).toBeTrue();
     });
 
-    it('should toggle visibility based on checkbox state (no expression required)', () => {
+    it('should toggle visibility based on checkbox state (no condition required)', () => {
       const form = setupForm(`
           <input type="checkbox" id="checkbox" />
           <div id="target" style="display: none;"></div>
@@ -122,7 +122,7 @@ describe('FieldRules.ts', () => {
       expect(form.querySelector("#target").style.display).toBe("none");
     });
 
-    it('should set required attribute based on selected value (no expression required)', () => {
+    it('should set required attribute based on selected value (no condition required)', () => {
       const form = setupForm(`
         <select id="select"><option value="a">a</option><option value="b">b</option></select>
         <input id="target" />
@@ -163,13 +163,13 @@ describe('FieldRules.ts', () => {
         rules: [
           {
             source: 'source',
-            expression: 'source.value == "enable"',
+            condition: 'source.value == "enable"',
             targets: ['readonlyTarget'],
             readonly: 'true'
           },
           {
             source: 'source',
-            expression: 'source.value == "enable"',
+            condition: 'source.value == "enable"',
             targets: ['disabledTarget'],
             disabled: 'true'
           }
@@ -196,7 +196,7 @@ describe('FieldRules.ts', () => {
         rules: [
           {
             source: 'sourceField',
-            expression: 'source.value == "apply"',
+            condition: 'source.value == "apply"',
             targets: ['targetField'],
             addClasses: ['highlight', 'important'],
             removeClasses: ['dimmed'],
@@ -241,28 +241,7 @@ describe('FieldRules.ts', () => {
       expect(targetField.hasAttribute('data-bsi-remove')).toBeFalse();
 
     });
-
-    // TODO [awe] 26.1 dynamic forms: re-enable and re-write this test case when the toggle feature is available
-    // it('should revert classes and attributes when rule no longer applies', () => {
-    //   sourceField.value = 'apply';
-    //   fieldRules.applyRules(form);
-    //
-    //   sourceField.value = 'ignore';
-    //   fieldRules.applyRules(form);
-    //
-    //   // Class
-    //   expect(targetField.classList.contains('highlight')).toBeFalse();
-    //   expect(targetField.classList.contains('important')).toBeFalse();
-    //   expect(targetField.classList.contains('dimmed')).toBeTrue();
-    //
-    //   // Attribute
-    //   expect(targetField.hasAttribute('data-status')).toBeFalse();
-    //   expect(targetField.hasAttribute('title')).toBeFalse();
-    //   expect(targetField.hasAttribute('aria-disabled')).toBeTrue();
-    //   expect(targetField.hasAttribute('data-bsi-remove')).toBeTrue();
-    // });
   });
-
 });
 
 function escapeJsonForHtmlAttribute(json) {

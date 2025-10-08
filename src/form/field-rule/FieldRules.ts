@@ -45,6 +45,8 @@ export class FieldRules {
     if (Array.isArray(rulesJson.rules)) {
       this.cachedRulesJson.set(formId, rulesJson);
     }
+
+    let registeredRadios: HTMLElement[] = [];
     const form = document.getElementById(formId) as HTMLFormElement;
     for (const rule of rulesJson.rules as Rule[]) {
       const sourceEl = document.getElementById(rule.source) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
@@ -52,15 +54,42 @@ export class FieldRules {
         console.warn(`Source element "${rule.source}" not found for form "${formId}"`);
         continue;
       }
-      if (this.attachedListeners.has(sourceEl)) {
+      this.attachEventListeners(form, sourceEl);
+      if (this.isRadio(sourceEl)) {
+        registeredRadios.push(sourceEl);
+      }
+    }
+
+    // Because radios do not trigger a 'change' event when they become unselected, we must register
+    // a change event on every radio in the form, that does not already have a registered event handler
+    // because of a form rule.
+    for (const radioEl of registeredRadios) {
+      const name = radioEl.getAttribute('name');
+      if (!name) {
         continue;
       }
-
-      const eventHandler = () => this.debouncedApplyRules(form);
-      sourceEl.addEventListener('input', eventHandler);
-      sourceEl.addEventListener('change', eventHandler);
-      this.attachedListeners.add(sourceEl);
+      const query = `input[type="radio"][name="${CSS.escape(name)}"]`;
+      const radios = form.querySelectorAll<HTMLInputElement>(query);
+      radios.forEach(otherRadioEl => {
+        if (otherRadioEl !== radioEl) {
+          this.attachEventListeners(form, otherRadioEl);
+        }
+      });
     }
+  }
+
+  protected attachEventListeners(form: HTMLFormElement, element: HTMLElement) {
+    if (this.attachedListeners.has(element)) {
+      return;
+    }
+    const eventHandler = () => this.debouncedApplyRules(form);
+    element.addEventListener('input', eventHandler);
+    element.addEventListener('change', eventHandler);
+    this.attachedListeners.add(element);
+  }
+
+  protected isRadio(element: HTMLElement): boolean {
+    return element instanceof HTMLInputElement && element.type === 'radio';
   }
 
   protected expressionEval(source: HTMLElement, expression: string): any {
