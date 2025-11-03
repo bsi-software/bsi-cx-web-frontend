@@ -16,7 +16,7 @@ module.exports = {
     extensions: ['.ts', '.js']
   },
   output: {
-    filename: 'bsi-cx-web-frontend-25.1.0.js',
+    filename: 'bsi-cx-web-frontend.js',
     path: path.resolve(__dirname, 'dist'),
     library: 'bsiCxWebFrontend',
     libraryTarget: 'umd'

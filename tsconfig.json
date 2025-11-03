@@ -1,13 +1,18 @@
 {
   "compilerOptions": {
     "target": "ES5",
-    "module": "ES6",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "declaration": true,
     "forceConsistentCasingInFileNames": true,
-    "outDir": "./dist"
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "typeRoots": [
+      "./node_modules/@types",
+      "./node_modules/expr-eval/parser.d.ts"]
   },
   "include": [
     "src/**/*"
