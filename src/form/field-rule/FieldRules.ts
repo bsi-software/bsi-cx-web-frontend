@@ -25,7 +25,7 @@ export class FieldRules {
     forms.forEach((form) => {
       const formId = form.id;
       if (!formId) {
-        console.warn('Skipping form without ID attribute:', form);
+        console.warn('Skipping form without ID attribute', form);
         return;
       }
 
@@ -66,6 +66,7 @@ export class FieldRules {
     for (const radioEl of registeredRadios) {
       const name = radioEl.getAttribute('name');
       if (!name) {
+        console.warn('Found a radio element but name attribute is missing or empty. Cannot attach event listeners.', radioEl);
         continue;
       }
       const query = `input[type="radio"][name="${CSS.escape(name)}"]`;
@@ -159,7 +160,7 @@ export class FieldRules {
 
   ruleDispatcher = {
     visible: (source: HTMLElement, target: HTMLElement, value: string) => {
-      let display = this.booleanToVisible(this.expressionEval(source, value));
+      let display = this.booleanToDisplayValue(this.expressionEval(source, value));
       target.style.display = display;
       // Also change the visibility of the associated label
       const label = document.querySelector(`label[for="${target.id}"]`) as HTMLElement;
@@ -224,7 +225,7 @@ export class FieldRules {
       .replace(/&rbrace;/g, '}');
   }
 
-  protected booleanToVisible(value: any): '' | 'none' {
+  protected booleanToDisplayValue(value: any): '' | 'none' {
     return !!value ? '' : 'none';
   }
 }
