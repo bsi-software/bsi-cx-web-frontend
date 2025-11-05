@@ -139,6 +139,14 @@ describe('ExprEval.ts', () => {
       expect(runEval('toDate(source.value) < toDate("2025-07-04T12:00")', {value: '2025-07-04T10:00'})).toBe(true);
     });
 
+    /**
+     * Info: refactor this test in 75 years.
+     */
+    it('custom function now() works correctly', () => {
+      expect(runEval('toDate(source.value) < now()', {value: '2025-07-04T10:00'})).toBe(true);
+      expect(runEval('toDate(source.value) > now()', {value: '2100-07-04T10:00'})).toBe(true);
+    });
+
     it ('handles empty and non-empty strings correctly', () => {
       // With static strings
       expect(runEval('length("foo") > 0', {value: '-ignore-'})).toBe(true);
@@ -148,6 +156,21 @@ describe('ExprEval.ts', () => {
       expect(runEval('length(source.value) > 0', {value: 'foo'})).toBe(true);
       expect(runEval('length(source.value) == 3', {value: 'foo'})).toBe(true);
       expect(runEval('length(source.value) == 0', {value: ''})).toBe(true);
+    });
+
+    it('custom function startsWith(h, n) works correctly', () => {
+      expect(runEval('startsWith(source.value, "neo")', {value: 'neon genesis'})).toBe(true);
+      expect(runEval('startsWith(source.value, "bar")', {value: 'neon genesis'})).toBe(false);
+    });
+
+    it('custom function endsWith(h, n) works correctly', () => {
+      expect(runEval('endsWith(source.value, "sis")', {value: 'neon genesis'})).toBe(true);
+      expect(runEval('endsWith(source.value, "bar")', {value: 'neon genesis'})).toBe(false);
+    });
+
+    it('custom function contains(h, n) works correctly', () => {
+      expect(runEval('contains(source.value, "gen")', {value: 'neon genesis'})).toBe(true);
+      expect(runEval('contains(source.value, "bar")', {value: 'neon genesis'})).toBe(false);
     });
   });
 });
