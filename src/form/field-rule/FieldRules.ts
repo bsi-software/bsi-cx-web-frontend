@@ -114,8 +114,21 @@ export class FieldRules {
         continue;
       }
 
-      // If no 'expression' is set, the rule is always applied - this makes sense if the rule works with dynamic values.
-      let apply = rule.condition ? this.expressionMatches(sourceEl, rule.condition) : true;
+      // If no 'condition' is set, the rule is always applied - this makes sense if the rule works with dynamic values.
+      // In case an exception occurs, we try to process the other rules anyway.
+      let apply = false;
+      if (rule.condition) {
+        try {
+          apply = this.expressionMatches(sourceEl, rule.condition);
+        } catch (e) {
+          console.warn('Failed to evaluate rule condition (1). Maybe there is a syntax error in the expression ' +
+            'or the source or some targets are invalid, or use an invalid ID. The exception was (2)', rule, e);
+          continue;
+        }
+      } else {
+        apply = true;
+      }
+
       if (!apply) {
         console.debug('Skipping rule (1) for source element (2) because expression (3) does not apply.',
           rule, sourceEl, rule.condition);
@@ -129,32 +142,41 @@ export class FieldRules {
         }
         console.debug('Applying rule (1) for source element (2) for target (3)', rule, sourceEl, targetEl);
 
-        // Apply each rule type if defined
-        if (rule.visible) {
-          this.ruleDispatcher.visible(sourceEl, targetEl, rule.visible);
-        }
-        if (rule.required) {
-          this.ruleDispatcher.required(sourceEl, targetEl, rule.required);
-        }
-        if (rule.disabled) {
-          this.ruleDispatcher.disabled(sourceEl, targetEl, rule.disabled);
-        }
-        if (rule.readonly) {
-          this.ruleDispatcher.readonly(sourceEl, targetEl, rule.readonly);
-        }
-        if (rule.addAttributes) {
-          this.ruleDispatcher.addAttributes(targetEl, rule.addAttributes);
-        }
-        if (rule.removeAttributes) {
-          this.ruleDispatcher.removeAttributes(targetEl, rule.removeAttributes);
-        }
-        if (rule.addClasses) {
-          this.ruleDispatcher.addClasses(targetEl, rule.addClasses);
-        }
-        if (rule.removeClasses) {
-          this.ruleDispatcher.removeClasses(targetEl, rule.removeClasses);
+        // In case an exception occurs, we try to process the other rules anyway.
+        try {
+          this.applyRule(rule, sourceEl, targetEl);
+        } catch (e) {
+          console.warn('Failed to process rule actions (1). Maybe there is a syntax error in the expression ' +
+            'or the source or some targets are invalid, or use an invalid ID. The exception was (2)', rule, e);
         }
       }
+    }
+  }
+
+  protected applyRule(rule: Rule, sourceEl: HTMLInputElement, targetEl: HTMLElement) {
+    if (rule.visible) {
+      this.ruleDispatcher.visible(sourceEl, targetEl, rule.visible);
+    }
+    if (rule.required) {
+      this.ruleDispatcher.required(sourceEl, targetEl, rule.required);
+    }
+    if (rule.disabled) {
+      this.ruleDispatcher.disabled(sourceEl, targetEl, rule.disabled);
+    }
+    if (rule.readonly) {
+      this.ruleDispatcher.readonly(sourceEl, targetEl, rule.readonly);
+    }
+    if (rule.addAttributes) {
+      this.ruleDispatcher.addAttributes(targetEl, rule.addAttributes);
+    }
+    if (rule.removeAttributes) {
+      this.ruleDispatcher.removeAttributes(targetEl, rule.removeAttributes);
+    }
+    if (rule.addClasses) {
+      this.ruleDispatcher.addClasses(targetEl, rule.addClasses);
+    }
+    if (rule.removeClasses) {
+      this.ruleDispatcher.removeClasses(targetEl, rule.removeClasses);
     }
   }
 

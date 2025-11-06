@@ -62,21 +62,21 @@ export class ExprEval {
      * Returns <code>true</code> if the given haystack string starts with the needle string.
      */
     parser.functions.startsWith = (haystack: string, needle: string)=> {
-      return haystack && haystack.startsWith(needle);
+      return !!haystack && haystack.startsWith(needle);
     };
 
     /**
      * Returns <code>true</code> if the given haystack string ends with the needle string.
      */
     parser.functions.endsWith = (haystack: string, needle: string)=> {
-      return haystack && haystack.endsWith(needle);
+      return !!haystack && haystack.endsWith(needle);
     };
 
     /**
      * Returns <code>true</code> if the given haystack string contains the needle string.
      */
     parser.functions.contains = (haystack: string, needle: string)=> {
-      return haystack && haystack.indexOf(needle) > -1;
+      return !!haystack && haystack.indexOf(needle) > -1;
     };
   }
 }

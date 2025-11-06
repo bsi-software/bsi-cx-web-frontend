@@ -10,11 +10,11 @@ Standard web frontend library for BSI CX designs.
 
 ## How-to publish the module on Npmjs.com
 
-* Check the version number in the package.json and increase, if needed.
+* Check the version number in the package.json and increase it, if needed.
 * Use `npm login` in the root directory of the module to connect to the official NPM registry.
 * Make sure that the correct registry is used (depends on your .npmrc settings).Force the correct registry with the
   following option:
-* `npm login --registry=https://registry.npmjs.org/`
+* `npm login --auth-type=web --registry=https://registry.npmjs.org/`
 * Use `npm publish` to publish the module. Example:
 * `npm publish --registry=https://registry.npmjs.org/ --access public`
 * Enter your NPM username, password, e-mail address (make sure it is the address you use in your NPM profile)
