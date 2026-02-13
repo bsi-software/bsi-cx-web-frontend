@@ -1,6 +1,7 @@
 {
   "name": "@bsi-cx/web-frontend",
-  "version": "26.1.2",
+  "version": "25.2.0",
+
   "description": "Standard web frontend library for BSI CX designs",
   "author": "BSI Business Systems Integration AG",
   "main": "dist/bsi-cx-web-frontend.js",
