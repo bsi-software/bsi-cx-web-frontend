@@ -9,7 +9,10 @@ npm install @bsi-cx/web-frontend
 ```js
 import { initResizerChild } from "@bsi-cx/web-frontend";
 
+// manually specified
 initResizerChild("https://www.example.com");
+// or resolve automatically
+initResizerChild(window.location.origin);
 ```
 
 In the parent page, pass the iframe selector and the exact origin of the page loaded inside it:
