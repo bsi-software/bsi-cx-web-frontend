@@ -50,7 +50,7 @@ export class ResizerParent {
                     if (isInitialPageLoad) {
                         isInitialPageLoad = false;
                     } else {
-                        iframe.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                        iframe.scrollIntoView({ behavior: 'smooth', block: 'start' });
                     }
                 }
             });
