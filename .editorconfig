@@ -1,0 +1,32 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+[*.{ts,js,mjs,cjs}]
+indent_size = 2
+# IntelliJ defaults continuation indent to 4 for JS/TS, which produces
+# indentation that @stylistic/indent rejects on wrapped lines.
+ij_continuation_indent_size = 2
+ij_typescript_use_double_quotes = false
+ij_typescript_force_quote_style = true
+ij_javascript_use_double_quotes = false
+ij_javascript_force_quote_style = true
+# Mirrors the ESLint `curly: ['error', 'all']` rule so Reformat Code
+# adds the braces instead of leaving them for the linter to flag.
+ij_typescript_if_brace_force = always
+ij_typescript_for_brace_force = always
+ij_typescript_while_brace_force = always
+ij_typescript_do_while_brace_force = always
+ij_javascript_if_brace_force = always
+ij_javascript_for_brace_force = always
+ij_javascript_while_brace_force = always
+ij_javascript_do_while_brace_force = always
+
+[*.md]
+trim_trailing_whitespace = false

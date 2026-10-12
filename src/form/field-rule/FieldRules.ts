@@ -103,10 +103,14 @@ export class FieldRules {
 
   protected applyRules(form: HTMLFormElement) {
     const formId = form.id;
-    if (!formId) return;
+    if (!formId) {
+      return;
+    }
 
     const rulesObj = this.cachedRulesJson.get(formId);
-    if (!rulesObj || !Array.isArray(rulesObj.rules)) return;
+    if (!rulesObj || !Array.isArray(rulesObj.rules)) {
+      return;
+    }
 
     for (const rule of rulesObj.rules) {
       const sourceEl = form.querySelector<HTMLInputElement>(`#${rule.source}`);
