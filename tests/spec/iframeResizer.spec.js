@@ -23,12 +23,18 @@ describe('IFrameResizer', () => {
     afterEach(() => {
       // init() discards the remover returned by _init(), so the 'message' listener
       // would otherwise stay registered for the remaining specs on this page.
-      parents.forEach(parent => parent.removeMessageListener?.());
+      // parents.forEach(parent => parent.removeMessageListener?.());
       document.body.replaceChildren();
     });
 
-    function init(selector, allowedOrigins) {
-      const parent = IFrameResizerParent.init(selector, allowedOrigins);
+    function initSelector(selector, ...allowedOrigins) {
+      const parent = IFrameResizerParent.initSelector(selector, allowedOrigins);
+      parents.push(parent);
+      return parent;
+    }
+
+    function init(iframe, ...allowedOrigins) {
+      const parent = IFrameResizerParent.init(iframe, allowedOrigins);
       parents.push(parent);
       return parent;
     }
@@ -53,7 +59,15 @@ describe('IFrameResizer', () => {
     it('returns an instance for an existing iframe', async () => {
       await appendIframe('customer-iframe');
 
-      const parent = init('#customer-iframe', window.location.origin);
+      const parent = initSelector('#customer-iframe', window.location.origin);
+
+      expect(parent instanceof IFrameResizerParent).toBe(true);
+    });
+
+    it('returns an instance for an existing iframe', async () => {
+      await appendIframe('customer-iframe');
+      let iframe = document.querySelector('#customer-iframe');
+      const parent = init(iframe);
 
       expect(parent instanceof IFrameResizerParent).toBe(true);
     });
@@ -61,35 +75,35 @@ describe('IFrameResizer', () => {
     it('warns when no iframe matches the selector', () => {
       spyOn(console, 'warn');
 
-      init('#missing-iframe', window.location.origin);
+      initSelector('#missing-iframe', window.location.origin);
 
       expect(console.warn).toHaveBeenCalledWith('Iframe not found with selector:', '#missing-iframe');
     });
 
     it('applies the height of a message sent by the iframe', async () => {
       await appendIframe('customer-iframe');
-      init('#customer-iframe', window.location.origin);
+      initSelector('#customer-iframe', window.location.origin);
       await postHeight({type: MESSAGE_TYPE, height: 300.2, isChildReloaded: false});
       expect(iframe.style.height).toBe('301px');
     });
 
     it('ignores a message from a foreign origin', async () => {
       await appendIframe('customer-iframe');
-      init('#customer-iframe', 'https://www.example.org');
+      initSelector('#customer-iframe', 'https://www.example.org');
       await postHeight({type: MESSAGE_TYPE, height: 300, isChildReloaded: false});
       expect(iframe.style.height).toBe('');
     });
 
     it('ignores a message that is not a height update', async () => {
       await appendIframe('customer-iframe');
-      init('#customer-iframe', window.location.origin);
+      initSelector('#customer-iframe', window.location.origin);
       await postHeight({type: 'someOtherMessage', height: 300, isChildReloaded: false});
       expect(iframe.style.height).toBe('');
     });
 
     it('scrolls the iframe into view on a reload, but not on the initial page load', async () => {
       await appendIframe('customer-iframe');
-      init('#customer-iframe', window.location.origin);
+      initSelector('#customer-iframe', window.location.origin);
       spyOn(iframe, 'scrollIntoView');
       await postHeight({type: MESSAGE_TYPE, height: 300, isChildReloaded: true});
       expect(iframe.scrollIntoView).not.toHaveBeenCalled();

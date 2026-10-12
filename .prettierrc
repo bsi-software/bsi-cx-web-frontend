@@ -1,0 +1,8 @@
+{
+  "tabWidth": 2,
+  "useTabs": false,
+  "singleQuote": true,
+  "objectWrap": "preserve",
+  "printWidth": 120,
+  "bracketSpacing": false
+}

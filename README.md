@@ -36,10 +36,10 @@ Initialize iFrame resizers for parent and child pages:
 ```js
 import { IFrameResizerChild } from '@bsi-cx/web-frontend';
 
-// Manually specified...
+// Manually specified parent origin (recommended for cross-origin-usecases)
 IFrameResizerChild.init('https://www.example.com');
 // or resolve automatically
-IFrameResizerChild.init(window.location.origin);
+IFrameResizerChild.init();
 ```
 
 In the parent page, pass the iFrame selector and the exact origin of the page loaded inside it:
@@ -47,7 +47,16 @@ In the parent page, pass the iFrame selector and the exact origin of the page lo
 ```js
 import { IFrameResizerParent } from '@bsi-cx/web-frontend';
 
-IFrameResizerParent.init('#customer-iframe', 'https://cx.customer.com');
+// init with iframe
+const iframe = document.querySelector('iframe');
+IFrameResizerParent.init(iframe);
+
+// init with iframeSelector
+IFrameResizerParent.initSelector('iframe');
+
+// add parent origin for more security
+IFrameResizerParent.init(iframe, ['https://my.parent.com']);
+
 ```
 
 Use exact origins on both sides. 

@@ -5,30 +5,23 @@
 import {MESSAGE_TYPE, IFrameResizerMessage} from './IFrameResizerMessage';
 
 export class IFrameResizerParent {
-
   private allowedOrigins: ReadonlySet<string>;
   private removeMessageListener?: () => void;
-  private iframeSelector: string;
+  private iframe: HTMLIFrameElement;
 
-  constructor(iframeSelector: string, allowedOrigins: string | string[]) {
-    const origins = typeof allowedOrigins === 'string' ? [allowedOrigins] : allowedOrigins;
-    this.iframeSelector = iframeSelector;
-    this.allowedOrigins = new Set(origins);
+  constructor(iframe: HTMLIFrameElement, allowedOrigins?: string | string[]) {
+    this.iframe = iframe;
+    let srcOrigin = new URL(iframe.src || window.location.origin ).origin;
+    allowedOrigins = !allowedOrigins ? [srcOrigin] : typeof allowedOrigins === 'string' ? [allowedOrigins] : allowedOrigins;
+    this.allowedOrigins = new Set(allowedOrigins || [srcOrigin]);
   }
 
   protected _init(): () => void {
     this.removeMessageListener?.();
-
-    const iframe = document.querySelector<HTMLIFrameElement>(this.iframeSelector);
-    if (!iframe) {
-      console.warn('Iframe not found with selector:', this.iframeSelector);
-      return () => undefined;
-    }
-
     let previousAnimationRequestId: number | null = null;
     let isInitialPageLoad = true;
     const handleMessage = (event: MessageEvent<unknown>): void => {
-      if (!this.allowedOrigins.has(event.origin) || event.source !== iframe.contentWindow) {
+      if (!this.allowedOrigins.has(event.origin) || event.source !== this.iframe.contentWindow) {
         return;
       }
       if (!this.isHeightUpdateMessage(event.data)) {
@@ -45,12 +38,12 @@ export class IFrameResizerParent {
 
       previousAnimationRequestId = requestAnimationFrame(() => {
         previousAnimationRequestId = null;
-        iframe.style.height = `${Math.ceil(height)}px`;
+        this.iframe.style.height = `${Math.ceil(height)}px`;
         if (data.isChildReloaded) {
           if (isInitialPageLoad) {
             isInitialPageLoad = false;
           } else {
-            iframe.scrollIntoView({behavior: 'smooth', block: 'start'});
+            this.iframe.scrollIntoView({behavior: 'smooth', block: 'start'});
           }
         }
       });
@@ -72,16 +65,27 @@ export class IFrameResizerParent {
       return false;
     }
     const message = data as Partial<IFrameResizerMessage>;
-    return message.type === MESSAGE_TYPE
-      && typeof message.height === 'number'
-      && typeof message.isChildReloaded === 'boolean';
+    return (
+      message.type === MESSAGE_TYPE &&
+      typeof message.height === 'number' &&
+      typeof message.isChildReloaded === 'boolean'
+    );
   }
 
-  static init(iframeSelector: string, allowedOrigins: string | string[]): IFrameResizerParent {
-    let resizerParent = new IFrameResizerParent(iframeSelector, allowedOrigins);
+  static initSelector(iframeSelector: string, ...allowedOrigins: string[]): IFrameResizerParent | undefined {
+    let iframe = document.querySelector<HTMLIFrameElement>(iframeSelector);
+    if (!iframe) {
+      console.warn('Iframe not found with selector:', iframeSelector);
+      return undefined;
+    }
+    let resizerParent = new IFrameResizerParent(iframe, allowedOrigins);
+    resizerParent._init();
+    return resizerParent;
+  }
+
+  static init(iframe: HTMLIFrameElement, ...allowedOrigins: string[]): IFrameResizerParent {
+    let resizerParent = new IFrameResizerParent(iframe, allowedOrigins);
     resizerParent._init();
     return resizerParent;
   }
 }
-
-
