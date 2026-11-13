@@ -237,9 +237,14 @@ export class FieldRules {
   }
 
   protected unescapeHtmlEntities(encoded: string): string {
-    let div = document.createElement('div');
-    div.innerHTML = encoded;
-    return div.innerText;
+    return encoded
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&')
+      .replace(/&lbrace/g, '{')
+      .replace(/&rbrace;/g, '}');
   }
 
   protected booleanToDisplayValue(value: any): '' | 'none' {
