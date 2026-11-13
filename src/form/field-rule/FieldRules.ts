@@ -184,10 +184,10 @@ export class FieldRules {
     visible: (source: HTMLElement, target: HTMLElement, value: string) => {
       let display = this.booleanToDisplayValue(this.expressionEval(source, value));
       target.style.display = display;
-      // Also change the visibility of the associated label
-      const label = document.querySelector(`label[for="${target.id}"]`) as HTMLElement;
-      if (label) {
-        label.style.display = display;
+      // search for first div which includes the label and the input (target)
+      const labelParent = target.closest(`*:has(label[for="${target.id}"])`) as HTMLElement;
+      if (labelParent) {
+        labelParent.style.display = display;
       }
     },
     required: (source: HTMLElement, target: HTMLElement, value: string) => {
