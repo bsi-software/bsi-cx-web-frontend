@@ -184,10 +184,10 @@ export class FieldRules {
     visible: (source: HTMLElement, target: HTMLElement, value: string) => {
       let display = this.booleanToDisplayValue(this.expressionEval(source, value));
       target.style.display = display;
-      // Also change the visibility of the associated label
-      const label = document.querySelector(`label[for="${target.id}"]`) as HTMLElement;
-      if (label) {
-        label.style.display = display;
+      // search for first div which includes the label and the input (target)
+      const labelParent = target.closest(`*:has(label[for="${target.id}"])`) as HTMLElement;
+      if (labelParent) {
+        labelParent.style.display = display;
       }
     },
     required: (source: HTMLElement, target: HTMLElement, value: string) => {
@@ -237,14 +237,9 @@ export class FieldRules {
   }
 
   protected unescapeHtmlEntities(encoded: string): string {
-    return encoded
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'")
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&amp;/g, '&')
-      .replace(/&lbrace/g, '{')
-      .replace(/&rbrace;/g, '}');
+    let div = document.createElement('div');
+    div.innerHTML = encoded;
+    return div.innerText;
   }
 
   protected booleanToDisplayValue(value: any): '' | 'none' {
